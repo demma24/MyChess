@@ -524,16 +524,52 @@ class Move:
             return self.moveID == other.moveID
         return False
 
-    def getChessNotation(self):
+    def getChessNotation(self, notation_type="standard"):
         """
-        Get move in chess notation (e.g., e2e4 then into correct notation).
+        Get move in the specified chess notation format.
+
+        notation_type options:
+        - "standard": Standard Algebraic Notation (e.g., e4, Nf3, O-O)
+        - "long": Long Algebraic Notation (e.g., e2-e4, Ng1-f3)
+        - "coordinate": Coordinate Notation (e.g., e2e4, g1f3)
+        - "uci": UCI Notation (e.g., e2e4, g1f3) - same as coordinate
+        - "descriptive": Traditional Descriptive Notation (e.g., P-K4, N-KB3)
         """
-        # TODO update for real chess notation
-        return self.getRankFile(self.startRow, self.startCol) + self.getRankFile(self.endRow, self.endCol)
+        if notation_type == "standard":
+            return self.getStandardAlgebraicNotation()
+
+    def getStandardAlgebraicNotation(self):
+        """
+        Get move in standard algebraic notation (e.g., e4, Nf3, Bxe5).
+        Most common notation used in chess literature.
+        """
+        if self.isCastleMove:
+            if self.endCol - self.startCol == 2:  # Kingside castle
+                return "O-O"
+            else:  # Queenside castle
+                return "O-O-O"
+
+        # Get piece letter (empty for pawns)
+        piece = self.pieceMoved[1].upper() if self.pieceMoved[1] != 'p' else ''
+
+        # Add capture symbol if applicable
+        capture = 'x' if self.pieceCaptured != '--' else ''
+
+        # Get destination square
+        destination = self.getRankFile(self.endRow, self.endCol)
+
+        # For pawns, show file when capturing
+        if not piece and capture:
+            piece = self.colsToFiles[self.startCol]
+
+        # Add promotion if applicable
+        promotion = '=' + self.pieceMoved[1].upper() if self.isPawnPromotion else ''
+
+        return f"{piece}{capture}{destination}{promotion}"
 
     def getRankFile(self, r, c):
         """
-        Convert row, col to chess notation (e.g., 6, 4 -> d2).
+        Convert row, col to chess notation (e.g., 6, 4 -> e2).
         """
         return self.colsToFiles[c] + self.rowsToRanks[r]
 
