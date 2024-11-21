@@ -24,7 +24,6 @@ class StockfishInterface:
         Return the appropriate Stockfish path based on operating system.
         """
         if os.name == 'nt':  # Windows
-            # Try multiple common Windows paths
             possible_paths = [
                 "stockfish/stockfish-windows-x86-64-bmi2.exe",
                 "stockfish/stockfish/stockfish-windows-x86-64-bmi2.exe",
@@ -47,9 +46,17 @@ class StockfishInterface:
                     return path
             raise FileNotFoundError(f"Stockfish not found in any of: {possible_paths}")
 
-    def get_best_move(self, game_state, time_limit=2.0):
+    def get_best_moves(self, game_state, num_moves=2, time_limit=2.0):
         """
-        Get the best move for the current position.
+        Get the best moves for the current position.
+
+        Parameters:
+        game_state: Current game state
+        num_moves: Number of best moves to return (default 2)
+        time_limit: Time limit for analysis in seconds
+
+        Returns:
+        List of tuples: [(move_str, score, [legal_moves]), ...]
         """
         if not self.engine:
             print("Engine not initialized")
@@ -58,26 +65,34 @@ class StockfishInterface:
         try:
             board = self._convert_to_chess_board(game_state)
 
-            # Get the best move using play rather than analyse
-            result = self.engine.play(board, chess.engine.Limit(time=time_limit))
+            # Get multiple analysis
+            info = self.engine.analyse(
+                board,
+                chess.engine.Limit(time=time_limit),
+                multipv=num_moves
+            )
 
-            if result.move is None:
-                print("No legal moves available")
-                return None
+            moves = []
+            for pv in info:
+                if 'pv' in pv and len(pv['pv']) > 0:
+                    move = pv['pv'][0]
+                    score = pv['score'].relative.score(mate_score=100000)
 
-            # Convert the move to algebraic notation
-            from_square = chess.square_name(result.move.from_square)
-            to_square = chess.square_name(result.move.to_square)
-            move_str = from_square + to_square
+                    # Convert move to algebraic notation
+                    from_square = chess.square_name(move.from_square)
+                    to_square = chess.square_name(move.to_square)
+                    move_str = from_square + to_square
 
-            # Get the evaluation
-            info = self.engine.analyse(board, chess.engine.Limit(time=0.1))
-            score = info["score"].relative.score(mate_score=100000)
+                    moves.append((
+                        move_str,
+                        score / 100 if score else 0,
+                        [str(move)]
+                    ))
 
-            return (move_str, score / 100 if score else 0, [str(result.move)])
+            return moves
 
         except Exception as e:
-            print(f"Error getting best move: {e}")
+            print(f"Error getting best moves: {e}")
             return None
 
     def _convert_to_chess_board(self, game_state):
